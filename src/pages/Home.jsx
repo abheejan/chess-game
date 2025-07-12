@@ -171,9 +171,9 @@ export default function Home() {
         <Typography variant="h4" align="center" fontWeight={600} gutterBottom>
           Features
         </Typography>
-        <Grid container spacing={4} justifyContent="center">
+        <Grid container spacing={4} columns={12} justifyContent="center">
           {features.map((f, idx) => (
-            <Grid item xs={12} sm={6} md={3} key={idx}>
+            <Grid span={3} key={idx}>
               <Card sx={{ textAlign: 'center', py: 3, boxShadow: 2, borderRadius: 3 }}>
                 <CardContent>
                   {f.icon}
@@ -195,8 +195,8 @@ export default function Home() {
 
       {/* Leaderboard & Demo Board Section */}
       <Box sx={{ py: 6, px: 2, maxWidth: 1100, mx: 'auto', zIndex: 2 }}>
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6}>
+        <Grid container spacing={4} columns={12}>
+          <Grid span={6}>
             <Typography variant="h4" fontWeight={600} gutterBottom>Leaderboard</Typography>
             <Paper elevation={2} sx={{ p: 2, borderRadius: 3 }}>
               {leaderboard.map((user, idx) => (
@@ -209,7 +209,7 @@ export default function Home() {
               ))}
             </Paper>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid span={6}>
             <Typography variant="h4" fontWeight={600} gutterBottom>Try a Move!</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
               <FormControlLabel
@@ -268,9 +268,9 @@ export default function Home() {
         <Typography variant="h4" align="center" fontWeight={600} gutterBottom>
           What Players Say
         </Typography>
-        <Grid container spacing={4} justifyContent="center">
+        <Grid container spacing={4} columns={12} justifyContent="center">
           {testimonials.map((t, idx) => (
-            <Grid item xs={12} sm={6} md={4} key={idx}>
+            <Grid span={4} key={idx}>
               <Card sx={{ p: 3, borderLeft: '6px solid #b58863', boxShadow: 2, minHeight: 120 }}>
                 <Typography variant="body1" sx={{ fontStyle: 'italic', mb: 2 }}>
                   “{t.quote}”

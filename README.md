@@ -1,6 +1,31 @@
-# Getting Started with Create React App
+# Chess 3D - Modern Chess Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-featured React chess application with 3D graphics, multiplayer functionality, and modern UI.
+
+## Features
+
+- 🎮 **Play vs Bot**: Challenge AI with multiple difficulty levels (Easy, Medium, Hard)
+- 🌐 **Multiplayer Online**: Create rooms and play with friends in real-time
+- 🎨 **3D Chessboard**: Beautiful 3D chess pieces with realistic graphics
+- 🔐 **Authentication**: Google Sign-In and email/password registration
+- 💬 **Real-time Chat**: Built-in chat for multiplayer games
+- 📊 **Game History**: Track your games and statistics
+- 🎨 **Modern UI**: Material-UI design with dark/light theme support
+- 📱 **Responsive**: Works on desktop, tablet, and mobile devices
+
+## Live Demo
+
+Visit the live application: [Chess 3D App](https://chess-app-20717.firebaseapp.com)
+
+## Tech Stack
+
+- **Frontend**: React 19, Material-UI, React Router
+- **3D Graphics**: Three.js, React Three Fiber
+- **Backend**: Firebase (Authentication, Firestore, Analytics)
+- **Chess Logic**: chess.js
+- **Styling**: Emotion, CSS-in-JS
+
+## Getting Started
 
 ## Available Scripts
 
@@ -39,32 +64,54 @@ Instead, it will copy all the configuration files and the transitive dependencie
 
 You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
 
-## Learn More
+## Firebase Setup
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+This project uses Firebase for authentication, database, and hosting. The Firebase configuration is already set up in `src/firebase.js`.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Firestore Rules
 
-### Code Splitting
+Deploy the Firestore security rules:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```bash
+firebase deploy --only firestore:rules
+```
 
-### Analyzing the Bundle Size
+### Authentication
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Enable the following authentication methods in your Firebase Console:
+- Google Sign-In
+- Email/Password
 
-### Making a Progressive Web App
+### Database
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+The app uses Firestore collections:
+- `users`: User profiles and data
+- `rooms`: Multiplayer game rooms
+- `games`: Game history and statistics
 
-### Advanced Configuration
+## Deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Deploy to Firebase Hosting:
 
-### Deployment
+```bash
+npm run build
+firebase deploy
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Contributing
 
-### `npm run build` fails to minify
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## License
+
+This project is licensed under the MIT License.
+
+## Author
+
+**Abheejan Lal Shrestha**
+- GitHub: [@abheejan](https://github.com/abheejan)
+- LinkedIn: [Abheejan Lal Shrestha](https://www.linkedin.com/in/abheejan-lal-shrestha-5b9919313/)
+- Email: abheejanlal@gmail.com

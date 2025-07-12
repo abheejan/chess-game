@@ -174,26 +174,26 @@ export default function Profile() {
       </Box>
 
       {/* Statistics */}
-      <Grid container spacing={3} sx={{ mb: 4, width: '100%' }}>
-        <Grid item xs={6} sm={3}>
+      <Grid container spacing={3} columns={12} sx={{ mb: 4, width: '100%' }}>
+        <Grid span={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="h4" color="primary">{stats.total}</Typography>
             <Typography variant="body2">Total Games</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid span={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="h4" color="success.main">{stats.wins}</Typography>
             <Typography variant="body2">Wins</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid span={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="h4" color="error.main">{stats.losses}</Typography>
             <Typography variant="body2">Losses</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid span={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="h4" color="warning.main">{stats.draws}</Typography>
             <Typography variant="body2">Draws</Typography>

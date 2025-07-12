@@ -2,17 +2,21 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD...your real key...",
-  authDomain: "your-app.firebaseapp.com",
-  projectId: "your-app",
-  storageBucket: "your-app.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456",
-  // ...other fields
+  apiKey: "AIzaSyAPNYkcRXug6bPLftrsVKVajsheiwiyavs",
+  authDomain: "chess-app-20717.firebaseapp.com",
+  projectId: "chess-app-20717",
+  storageBucket: "chess-app-20717.firebasestorage.app",
+  messagingSenderId: "1050446678114",
+  appId: "1:1050446678114:web:972af908937be2d81ae93b",
+  measurementId: "G-0ETEC1GL8V"
 };
 
-export const app = initializeApp(firebaseConfig);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const analytics = getAnalytics(app);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export { app };
