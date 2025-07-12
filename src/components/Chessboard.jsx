@@ -7,7 +7,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { addDoc, collection, serverTimestamp, doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, doc, onSnapshot, updateDoc, getDoc, deleteDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useRef } from "react";
 import { collection as firestoreCollection, addDoc as firestoreAddDoc, query, orderBy, onSnapshot as firestoreOnSnapshot } from "firebase/firestore";
 // import useSound from 'use-sound';
@@ -60,6 +60,37 @@ function getSquareName(i, j) {
   return String.fromCharCode(97 + j) + (8 - i);
 }
 
+// Elo calculation helper
+async function updateEloRatings(playerWhite, playerBlack, result) {
+  const userWhiteRef = doc(db, "users", playerWhite);
+  const userBlackRef = doc(db, "users", playerBlack);
+  const userWhiteSnap = await getDoc(userWhiteRef);
+  const userBlackSnap = await getDoc(userBlackRef);
+  const whiteRating = userWhiteSnap.data()?.stats?.rating || 1200;
+  const blackRating = userBlackSnap.data()?.stats?.rating || 1200;
+  // Determine scores
+  let whiteScore, blackScore;
+  if (result === "draw") {
+    whiteScore = 0.5; blackScore = 0.5;
+  } else if (result === "white") {
+    whiteScore = 1; blackScore = 0;
+  } else if (result === "black") {
+    whiteScore = 0; blackScore = 1;
+  } else {
+    return;
+  }
+  // Elo formula
+  function calcElo(oldRating, oppRating, score, k = 32) {
+    const expected = 1 / (1 + Math.pow(10, (oppRating - oldRating) / 400));
+    return Math.round(oldRating + k * (score - expected));
+  }
+  const newWhite = calcElo(whiteRating, blackRating, whiteScore);
+  const newBlack = calcElo(blackRating, whiteRating, blackScore);
+  // Update Firestore
+  await updateDoc(userWhiteRef, { "stats.rating": newWhite });
+  await updateDoc(userBlackRef, { "stats.rating": newBlack });
+}
+
 export default function Chessboard({ 
   roomId, 
   multiplayer, 
@@ -90,7 +121,17 @@ export default function Chessboard({
   const [theme, setTheme] = useState('classic');
   const [soundEnabled, setSoundEnabled] = useState(false); // Disable sounds temporarily
   const themeObj = useTheme();
+  const [fenHistory, setFenHistory] = useState([game.fen()]);
   
+  // Add room data state
+  const [roomData, setRoomData] = useState(null);
+  
+  // Add chess clock state
+  const [clockWhite, setClockWhite] = useState(null);
+  const [clockBlack, setClockBlack] = useState(null);
+  const [activeClock, setActiveClock] = useState(null);
+  const clockInterval = useRef(null);
+
   // Define getSquareColor inside the component so it can access 'theme'
   function getSquareColor(i, j) {
     return (i + j) % 2 === 1 ? themes[theme].dark : themes[theme].light;
@@ -140,13 +181,30 @@ export default function Chessboard({
     const unsub = onSnapshot(roomRef, async (snap) => {
       const data = snap.data();
       if (data) {
+        setRoomData(data);
         if (data.fen) {
           setGame(new Chess(data.fen));
+        }
+        if (data.fenHistory) {
+          setFenHistory(data.fenHistory);
         }
         if (data.status === "finished") {
           setGameOver(true);
           setGameResult(data.result);
           await saveGameResult(data.result, data.winner);
+          // Elo update for ranked games
+          if (data.playerWhite && data.playerBlack) {
+            await updateEloRatings(data.playerWhite, data.playerBlack, data.result);
+          }
+          // Room cleanup: delete room after 30 seconds
+          setTimeout(async () => {
+            try {
+              await deleteDoc(roomRef);
+            } catch (e) {
+              // In production, use a backend/cloud function for robust cleanup
+              console.error("Failed to delete room:", e);
+            }
+          }, 30000); // 30 seconds
         }
       }
     });
@@ -220,20 +278,29 @@ export default function Chessboard({
   const handleSquareClick = async (i, j) => {
     if (gameOver) return;
     const square = getSquareName(i, j);
-    
+    const piece = game.get(square);
     // Handle piece selection for bot mode
     if (onPieceSelect && !selected) {
-      const piece = game.get(square);
-      if (piece && piece.color === 'w') {
+      if (piece && (!multiplayer ? piece.color === 'w' : (game.turn() === 'w' ? currentUser?.uid === playerWhite : currentUser?.uid === playerBlack))) {
         onPieceSelect(square);
         setSelected({ row: i, col: j });
         return;
       }
     }
-
+    // Deselect if clicking the same piece
+    if (selected && selected.row === i && selected.col === j) {
+      setSelected(null);
+      if (onPieceSelect) onPieceSelect(null);
+      return;
+    }
+    // Switch selection if clicking another of user's pieces
+    if (selected && piece && (!multiplayer ? piece.color === 'w' : (game.turn() === 'w' ? currentUser?.uid === playerWhite : currentUser?.uid === playerBlack))) {
+      setSelected({ row: i, col: j });
+      if (onPieceSelect) onPieceSelect(square);
+      return;
+    }
     if (selected) {
       const from = getSquareName(selected.row, selected.col);
-      
       // Bot mode - use onUserMove callback
       if (onUserMove) {
         const success = onUserMove(from, square);
@@ -242,7 +309,6 @@ export default function Chessboard({
         }
         return;
       }
-
       // Multiplayer mode - existing logic
       if (multiplayer && roomId) {
         const isWhite = game.turn() === "w";
@@ -252,44 +318,32 @@ export default function Chessboard({
           return;
         }
       }
-      
       // Check if the move is valid before attempting it
       const moves = game.moves({ square: from, verbose: true });
       const validMove = moves.find(move => move.to === square);
-      
       if (!validMove) {
         setSelected(null);
         return;
       }
-      
       // Use the valid move object to make the move
       const move = game.move(validMove);
       if (move) {
         setGame(new Chess(game.fen()));
         setLastMove({ from, to: square });
         setSelected(null);
-        
-        // Comment out sound effects temporarily
-        // if (soundEnabled) {
-        //   playMove();
-        //   if (game.inCheck()) {
-        //     playCheck();
-        //   }
-        // }
-        
         // Multiplayer: update Firestore
         if (multiplayer && roomId) {
           const roomRef = doc(db, "rooms", roomId);
-          await updateDoc(roomRef, { fen: game.fen() });
+          await updateDoc(roomRef, { 
+            fen: game.fen(),
+            fenHistory: arrayUnion(game.fen())
+          });
           // Check for game over
           if (game.isGameOver()) {
             let result = "draw";
             if (game.isCheckmate()) {
               result = game.turn() === "w" ? "black" : "white";
             }
-            // if (soundEnabled) {
-            //   playGameOver();
-            // }
             await updateDoc(roomRef, { 
               status: "finished", 
               result,
@@ -304,9 +358,6 @@ export default function Chessboard({
           if (game.isCheckmate()) {
             result = game.turn() === "w" ? "loss" : "win";
           }
-          // if (soundEnabled) {
-          //   playGameOver();
-          // }
           if (currentUser) {
             addDoc(collection(db, "games"), {
               userId: currentUser.uid,
@@ -319,8 +370,9 @@ export default function Chessboard({
       } else {
         setSelected(null);
       }
-    } else if (board[i][j]) {
+    } else if (piece && (!multiplayer ? piece.color === 'w' : (game.turn() === 'w' ? currentUser?.uid === playerWhite : currentUser?.uid === playerBlack))) {
       setSelected({ row: i, col: j });
+      if (onPieceSelect) onPieceSelect(square);
     }
   };
 
@@ -328,6 +380,23 @@ export default function Chessboard({
     setGame(new Chess());
     setSelected(null);
     setLastMove(null);
+  }
+
+  async function handleUndo() {
+    if (!multiplayer || !roomId || !isMyTurn || !fenHistory || fenHistory.length < 2) return;
+    
+    // Get the previous FEN from history
+    const previousFen = fenHistory[fenHistory.length - 2];
+    const newGame = new Chess(previousFen);
+    
+    // Update the room with the previous state
+    const roomRef = doc(db, "rooms", roomId);
+    await updateDoc(roomRef, {
+      fen: previousFen,
+      fenHistory: fenHistory.slice(0, -1),
+      turn: newGame.turn(),
+      lastMove: null
+    });
   }
 
   async function handleSendMessage(e) {
@@ -348,6 +417,70 @@ export default function Chessboard({
 
   const squareSize = 50;
   const mobileSquareSize = 36;
+
+  // Parse timeControl from roomData or props
+  function parseTimeControl(tc) {
+    if (!tc || tc === 'custom') return { base: 300, increment: 0 };
+    const [base, inc] = tc.split('|').map(Number);
+    return { base: base * 60, increment: inc || 0 };
+  }
+
+  // Initialize clocks when game starts
+  useEffect(() => {
+    if (!multiplayer || !roomId || !roomData?.timeControl) return;
+    const { base } = parseTimeControl(roomData.timeControl);
+    setClockWhite(base);
+    setClockBlack(base);
+    setActiveClock(roomData.turn === 'w' ? 'white' : 'black');
+  }, [multiplayer, roomId, roomData?.timeControl]);
+
+  // Clock ticking logic
+  useEffect(() => {
+    if (!multiplayer || !roomId || gameOver) return;
+    if (activeClock && ((activeClock === 'white' && isMyTurn && roomData.turn === 'w') || (activeClock === 'black' && isMyTurn && roomData.turn === 'b'))) {
+      clockInterval.current = setInterval(() => {
+        if (activeClock === 'white') setClockWhite(c => Math.max(0, c - 1));
+        if (activeClock === 'black') setClockBlack(c => Math.max(0, c - 1));
+      }, 1000);
+      return () => clearInterval(clockInterval.current);
+    }
+    return () => clearInterval(clockInterval.current);
+  }, [activeClock, isMyTurn, multiplayer, roomId, gameOver, roomData?.turn]);
+
+  // On move, switch clocks and apply increment
+  useEffect(() => {
+    if (!multiplayer || !roomId || !roomData?.turn) return;
+    if (roomData.turn === 'w') setActiveClock('white');
+    if (roomData.turn === 'b') setActiveClock('black');
+    // Apply increment if needed
+    const { increment } = parseTimeControl(roomData.timeControl);
+    if (roomData.lastMove && increment) {
+      if (roomData.lastMove.to && roomData.lastMove.color) {
+        if (roomData.lastMove.color === 'w') setClockWhite(c => c + increment);
+        if (roomData.lastMove.color === 'b') setClockBlack(c => c + increment);
+      }
+    }
+  }, [roomData?.turn, roomData?.lastMove, multiplayer, roomId, roomData?.timeControl]);
+
+  // Sync clocks to Firestore
+  useEffect(() => {
+    if (!multiplayer || !roomId) return;
+    const roomRef = doc(db, "rooms", roomId);
+    updateDoc(roomRef, { clockWhite, clockBlack });
+  }, [clockWhite, clockBlack, multiplayer, roomId]);
+
+  // Handle timeout
+  useEffect(() => {
+    if (!multiplayer || !roomId || gameOver) return;
+    if (clockWhite === 0 && roomData.turn === 'w') {
+      // Black wins on timeout
+      updateDoc(doc(db, "rooms", roomId), { status: 'finished', result: 'black', winner: playerBlack });
+    }
+    if (clockBlack === 0 && roomData.turn === 'b') {
+      // White wins on timeout
+      updateDoc(doc(db, "rooms", roomId), { status: 'finished', result: 'white', winner: playerWhite });
+    }
+  }, [clockWhite, clockBlack, multiplayer, roomId, gameOver, roomData?.turn, playerWhite, playerBlack]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'flex-start', mt: 4, gap: 2 }}>
@@ -375,6 +508,18 @@ export default function Chessboard({
         )}
         <Card sx={{ p: 2, boxShadow: 3 }}>
           <CardContent>
+            {multiplayer && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, width: { xs: 288, md: 400 } }}>
+                <Box sx={{ textAlign: 'center', flex: 1, bgcolor: activeClock === 'white' ? 'primary.light' : 'grey.100', p: 1, borderRadius: 1 }}>
+                  <Typography variant="body2">White</Typography>
+                  <Typography variant="h6">{clockWhite !== null ? `${Math.floor(clockWhite/60)}:${(clockWhite%60).toString().padStart(2,'0')}` : '--:--'}</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center', flex: 1, bgcolor: activeClock === 'black' ? 'primary.light' : 'grey.100', p: 1, borderRadius: 1 }}>
+                  <Typography variant="body2">Black</Typography>
+                  <Typography variant="h6">{clockBlack !== null ? `${Math.floor(clockBlack/60)}:${(clockBlack%60).toString().padStart(2,'0')}` : '--:--'}</Typography>
+                </Box>
+              </Box>
+            )}
             <Box
               sx={{
                 display: "grid",
@@ -441,6 +586,11 @@ export default function Chessboard({
               <Button variant="outlined" color="secondary" onClick={handleReset}>
                 Reset Board
               </Button>
+              {multiplayer && !gameOver && (
+                <Button variant="outlined" color="primary" onClick={handleUndo} disabled={!isMyTurn || !fenHistory || fenHistory.length < 2}>
+                  Undo
+                </Button>
+              )}
               {multiplayer && !gameOver && (
                 <>
                   <Button variant="outlined" color="error" onClick={handleResign}>

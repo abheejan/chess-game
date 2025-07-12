@@ -22,6 +22,7 @@ export default function PlayBot() {
   const [availableMoves, setAvailableMoves] = useState([]);
   const [use3D, setUse3D] = useState(false);
   const [difficulty, setDifficulty] = useState("easy");
+  const [fenHistory, setFenHistory] = useState([new Chess().fen()]);
 
   // Bot move logic for different difficulties
   function botMove(currentGame) {
@@ -48,6 +49,7 @@ export default function PlayBot() {
       move = findBestMove(currentGame, 2);
       if (!move) move = moves[Math.floor(Math.random() * moves.length)];
     }
+    setFenHistory(prev => [...prev, currentGame.fen()]);
     currentGame.move(move);
     setGame(new Chess(currentGame.fen()));
     setUserTurn(true);
@@ -129,6 +131,11 @@ export default function PlayBot() {
   // Handle piece selection and show available moves
   const handlePieceSelect = (from) => {
     if (!userTurn || game.isGameOver() || !gameStarted) return;
+    if (selectedPiece === from) {
+      setSelectedPiece(null);
+      setAvailableMoves([]);
+      return;
+    }
     const piece = game.get(from);
     if (piece && piece.color === 'w') { // User plays as white
       setSelectedPiece(from);
@@ -148,6 +155,7 @@ export default function PlayBot() {
     if (!validMove) return false;
     
     // Use the valid move object to make the move
+    setFenHistory(prev => [...prev, game.fen()]);
     const move = game.move(validMove);
     if (move) {
       setGame(new Chess(game.fen()));
@@ -171,6 +179,7 @@ export default function PlayBot() {
     setGameStarted(true);
     setSelectedPiece(null);
     setAvailableMoves([]);
+    setFenHistory([new Chess().fen()]);
   }
 
   function handleReset() {
@@ -180,6 +189,22 @@ export default function PlayBot() {
     setGameStarted(false);
     setSelectedPiece(null);
     setAvailableMoves([]);
+    setFenHistory([new Chess().fen()]);
+  }
+
+  function handleUndo() {
+    if (fenHistory.length < 2) return;
+    // Undo bot move and user move if possible
+    let newHistory = [...fenHistory];
+    newHistory.pop(); // Undo bot move
+    if (newHistory.length > 1) newHistory.pop(); // Undo user move
+    const lastFen = newHistory[newHistory.length - 1];
+    setGame(new Chess(lastFen));
+    setFenHistory(newHistory);
+    setUserTurn(true);
+    setSelectedPiece(null);
+    setAvailableMoves([]);
+    setResult(null);
   }
 
   // 3D board click handler
@@ -187,19 +212,29 @@ export default function PlayBot() {
     if (!userTurn || game.isGameOver() || !gameStarted) return;
     const from = selectedPiece;
     const to = String.fromCharCode(97 + j) + (8 - i);
+    const piece = game.get(to);
+    // Deselect if clicking the same piece
+    if (from === to) {
+      setSelectedPiece(null);
+      setAvailableMoves([]);
+      return;
+    }
+    // Switch selection if clicking another of user's pieces
+    if (from && piece && piece.color === 'w') {
+      setSelectedPiece(to);
+      const moves = game.moves({ square: to, verbose: true });
+      setAvailableMoves(moves.map(move => move.to));
+      return;
+    }
     if (from && availableMoves.includes(to)) {
       handleUserMove(from, to);
+    } else if (piece && piece.color === 'w') {
+      setSelectedPiece(to);
+      const moves = game.moves({ square: to, verbose: true });
+      setAvailableMoves(moves.map(move => move.to));
     } else {
-      // Select new piece
-      const piece = game.get(to);
-      if (piece && piece.color === 'w') {
-        setSelectedPiece(to);
-        const moves = game.moves({ square: to, verbose: true });
-        setAvailableMoves(moves.map(move => move.to));
-      } else {
-        setSelectedPiece(null);
-        setAvailableMoves([]);
-      }
+      setSelectedPiece(null);
+      setAvailableMoves([]);
     }
   };
 
@@ -302,15 +337,15 @@ export default function PlayBot() {
               />
             )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button 
-              variant="outlined" 
-              color="secondary" 
-              onClick={handleReset}
-              fullWidth
-            >
-              Reset Game
+          <Box sx={{ my: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
+            <Button variant="outlined" color="secondary" onClick={handleReset}>
+              Reset Board
             </Button>
+            <Button variant="outlined" color="primary" onClick={handleUndo} disabled={fenHistory.length < 2 || !gameStarted}>
+              Undo
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
             {gameStarted && (
               <Button 
                 variant="outlined" 

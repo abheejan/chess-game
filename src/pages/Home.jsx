@@ -9,6 +9,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import EmailIcon from '@mui/icons-material/Email';
 import ThreeDChessboard from "../components/ThreeDChessboard";
+import { useNavigate } from "react-router-dom";
 
 // --- Sample Data ---
 const data = [
@@ -112,6 +113,7 @@ const keyframes = `@keyframes bgmove { 0% { background-position: 0 0, 0 0; } 100
 
 export default function Home() {
   const [use3D, setUse3D] = useState(false);
+  const navigate = useNavigate();
   
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
@@ -139,11 +141,11 @@ export default function Home() {
           <Typography variant="h5" sx={{ mb: 3 }}>
             The modern, full-featured chess platform.
           </Typography>
-          <Button variant="contained" color="primary" size="large" href="/playbot" sx={{ mr: 2 }}>
-            Play vs Bot
+          <Button variant="contained" color="primary" size="large" onClick={() => navigate("/play-bot") } sx={{ mr: 2 }}>
+            PLAY VS BOT
           </Button>
-          <Button variant="outlined" color="primary" size="large" href="/playonline">
-            Play Online
+          <Button variant="outlined" color="primary" size="large" onClick={() => navigate("/play-online") }>
+            PLAY ONLINE
           </Button>
         </Box>
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
